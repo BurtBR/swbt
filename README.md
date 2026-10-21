@@ -1,2 +1,2 @@
-# swbt
+# SWBT
 SWD Bluetooth Bridge

@@ -1,0 +1,56 @@
+# ============================================
+# STM32CubeMX + STM32CubeIDE
+# STM32 NUCLEO-WB55
+# ============================================
+
+# --- Build directories ---
+Debug/
+Release/
+build/
+cmake-build-*/
+
+# --- Compiler and linker outputs ---
+*.o
+*.obj
+*.d
+*.su
+*.cyclo
+*.elf
+*.axf
+*.map
+*.list
+*.lst
+*.hex
+*.srec
+*.dis
+
+# --- Generated build files ---
+*.mk
+makefile
+sources.mk
+objects.mk
+subdir.mk
+
+# --- STM32CubeIDE / Eclipse ---
+.metadata/
+.settings/
+*.log
+
+# --- Temporary and backup files ---
+*~
+*.bak
+*.tmp
+*.swp
+*.swo
+*.orig
+*.rej
+
+# --- Operating system files ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Python tools, if used ---
+__pycache__/
+*.pyc
+.venv/

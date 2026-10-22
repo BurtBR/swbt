@@ -2,7 +2,7 @@
  * swdprotocol.h
  *
  *  Created on: 21 Oct 2026
- *      Author: burt_
+ *      Author: Luciano Massaneiro
  */
 
 #ifndef INC_SWDPROTOCOL_H_

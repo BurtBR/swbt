@@ -151,15 +151,14 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1){
-	  //SlaveTick();
-
 	dmaidx = SlaveDMARxIndex();
 
 	if(curridx != dmaidx){
 		DEBUGIOHIGH;
-		bitin = SlaveDMABit(curridx++);
+		curridx++;
 		switch(state){
 		case Start:
+			bitin = SlaveDMABit(curridx-1);
 			data = (((data >> 1UL) | (bitin << 7UL)) & 0xFF);
 			switch(data){
 			case 0xFF:
@@ -174,11 +173,11 @@ int main(void)
 			case 0b10010011:
 			case 0b10011001:
 			case 0b10111011:
-				SlaveSetDMAAckOk(curridx+1);
-				SlaveSetDMAWrite(curridx+4);
-				SlaveSetDMARequest(curridx+38);
+				SlaveSetDMAAckOk(curridx+14);
+				SlaveSetDMAWrite(curridx+17);
+				SlaveSet2DMARequest(curridx+51);
 				counter = 36;
-				state = WriteData0;
+				state = Write;
 				packet.request = data;
 				break;
 			// Read
@@ -191,20 +190,20 @@ int main(void)
 			case 0b10111101:
 			case 0b10011111:
 				if(blestatus.ready && blestatus.packet.request == data){
-					SlaveSetDMAAckOk(curridx+1);
-					SlaveSetDMARead(curridx+4, &data);
-					SlaveSetDMARequest(curridx+38);
+					SlaveSetDMAAckOk(curridx+14);
+					SlaveSetDMARead(curridx+17, &data);
+					SlaveSet2DMARequest(curridx+51);
 					counter = 37;
-					state = ReadData0;
+					state = Read;
 					packet.request = data;
 				}else if(!blestatus.busy){
-					SlaveSetDMAAckWait(curridx+1);
-					SlaveSetDMARequest(curridx+5);
+					SlaveSetDMAAckWait(curridx+14);
+					SlaveSetDMARequest(curridx+18);
 					packet.request = data;
 				}else{
+					SlaveSetDMAAckWait(curridx+14);
+					SlaveSetDMARequest(curridx+18);
 					packet.request = data;
-					SlaveSetDMAAckWait(curridx+1);
-					SlaveSetDMARequest(curridx+5);
 				}
 				data = 0;
 				break;
@@ -212,13 +211,14 @@ int main(void)
 				break;
 			}
 			break;
-		case ReadData0:
+		case Read:
 			if((--counter) == 0){
 				state = Start;
 				data = 0;
 			}
 			break;
-		case WriteData0:
+		case Write:
+			bitin = SlaveDMABit(curridx-1);
 			data = ((data >> 1UL) | (bitin << 31UL));
 			if((--counter) == 0){
 				state = WriteParity;
@@ -226,6 +226,7 @@ int main(void)
 			}
 			break;
 		case WriteParity:
+			bitin = SlaveDMABit(curridx-1);
 			if(bitin == __builtin_parity(data)){
 				packet.parity = bitin;
 				SendPacket(&packet);
@@ -234,6 +235,7 @@ int main(void)
 			data = 0;
 			break;
 		case LineReset0:
+			bitin = SlaveDMABit(curridx-1);
 			SlaveSetDMADiscard(curridx);
 			if(!bitin){
 				data = 0;
@@ -241,22 +243,24 @@ int main(void)
 			}
 			break;
 		case LineReset1:
+			bitin = SlaveDMABit(curridx-1);
 			SlaveSetDMADiscard(curridx);
 			if(bitin){
 				state = LineSWD;
 				data = 0x8000;
 			}else{
-				SlaveSetDMARequest(curridx);
+				SlaveSet2DMARequest(curridx);
 				SendLineReset();
 				state = Start;
 				data = 0;
 			}
 			break;
 		case LineSWD:
+			bitin = SlaveDMABit(curridx-1);
 			SlaveSetDMADiscard(curridx);
 			data = ((data >> 1UL) | (bitin << 15UL));
 			if(data == SWDLINECOMMAND){
-				SlaveSetDMARequest(curridx);
+				SlaveSet2DMARequest(curridx);
 				SendLineSWD();
 				state = Start;
 			}
@@ -530,7 +534,8 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
-
+  // Configure SWDIOIN to very high speed
+  SWDIOIN_GPIO_Port->OSPEEDR |= (3UL << (SWDIOINSHIFT * 2UL));
   /* USER CODE END MX_GPIO_Init_2 */
 }
 

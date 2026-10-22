@@ -120,7 +120,7 @@ int main(void)
   TIM1->DIER |= TIM_DIER_UIE;
   TIM1->CR1 |= TIM_CR1_CEN;
 
-  SlaveSetDMARequest(0);
+  SlaveClearAllDMA();
   StartDMA();
 
   // Start Capture Channels
@@ -136,12 +136,136 @@ int main(void)
       Error_Handler();
   }
 
+  	SlaveState state = Start;
+  	SWDPacket packet = {
+  		.request = 0,
+  		.ack = 0,
+  		.data = 0,
+  		.parity = 0
+  	};
+  	uint8_t dmaidx, curridx = 0;
+  	uint32_t bitin, data=0, counter=0;
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1){
-	  SlaveTick();
+	  //SlaveTick();
+
+	dmaidx = SlaveDMARxIndex();
+
+	if(curridx != dmaidx){
+		DEBUGIOHIGH;
+		bitin = SlaveDMABit(curridx++);
+		switch(state){
+		case Start:
+			data = (((data >> 1UL) | (bitin << 7UL)) & 0xFF);
+			switch(data){
+			case 0xFF:
+				state = LineReset0;
+				break;
+			// Write
+			case 0b10000001:
+			case 0b10100011:
+			case 0b10101001:
+			case 0b10001011:
+			case 0b10110001:
+			case 0b10010011:
+			case 0b10011001:
+			case 0b10111011:
+				SlaveSetDMAAckOk(curridx+1);
+				SlaveSetDMAWrite(curridx+4);
+				SlaveSetDMARequest(curridx+38);
+				counter = 36;
+				state = WriteData0;
+				packet.request = data;
+				break;
+			// Read
+			case 0b10100101:
+			case 0b10000111:
+			case 0b10001101:
+			case 0b10101111:
+			case 0b10010101:
+			case 0b10110111:
+			case 0b10111101:
+			case 0b10011111:
+				if(blestatus.ready && blestatus.packet.request == data){
+					SlaveSetDMAAckOk(curridx+1);
+					SlaveSetDMARead(curridx+4, &data);
+					SlaveSetDMARequest(curridx+38);
+					counter = 37;
+					state = ReadData0;
+					packet.request = data;
+				}else if(!blestatus.busy){
+					SlaveSetDMAAckWait(curridx+1);
+					SlaveSetDMARequest(curridx+5);
+					packet.request = data;
+				}else{
+					packet.request = data;
+					SlaveSetDMAAckWait(curridx+1);
+					SlaveSetDMARequest(curridx+5);
+				}
+				data = 0;
+				break;
+			default:
+				break;
+			}
+			break;
+		case ReadData0:
+			if((--counter) == 0){
+				state = Start;
+				data = 0;
+			}
+			break;
+		case WriteData0:
+			data = ((data >> 1UL) | (bitin << 31UL));
+			if((--counter) == 0){
+				state = WriteParity;
+				packet.data = data;
+			}
+			break;
+		case WriteParity:
+			if(bitin == __builtin_parity(data)){
+				packet.parity = bitin;
+				SendPacket(&packet);
+			}
+			state = Start;
+			data = 0;
+			break;
+		case LineReset0:
+			SlaveSetDMADiscard(curridx);
+			if(!bitin){
+				data = 0;
+				state = LineReset1;
+			}
+			break;
+		case LineReset1:
+			SlaveSetDMADiscard(curridx);
+			if(bitin){
+				state = LineSWD;
+				data = 0x8000;
+			}else{
+				SlaveSetDMARequest(curridx);
+				SendLineReset();
+				state = Start;
+				data = 0;
+			}
+			break;
+		case LineSWD:
+			SlaveSetDMADiscard(curridx);
+			data = ((data >> 1UL) | (bitin << 15UL));
+			if(data == SWDLINECOMMAND){
+				SlaveSetDMARequest(curridx);
+				SendLineSWD();
+				state = Start;
+			}
+			break;
+		default:
+			break;
+		}
+		DEBUGIOLOW;
+	}
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */

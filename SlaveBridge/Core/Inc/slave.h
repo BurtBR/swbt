@@ -335,6 +335,13 @@ static inline void SlaveSetDMADiscard(const uint8_t dmaidx){
 	DMATxBuffer[dmaidx] = 0x0;
 }
 
+static inline void SlaveClearAllDMA(){
+	for(int k=0; k<256 ;k++){
+		DMAMODERBuffer[k] = SWDIOINHIZ;
+		DMATxBuffer[k] = 0x0;
+	}
+}
+
 static inline void SlaveTick(){
 	static SlaveState state = Start;
 	static SWDPacket packet = {

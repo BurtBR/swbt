@@ -421,7 +421,7 @@ static inline void SlaveTick(){
 		}else{
 			data = (data | (bitin << 5UL) | 0x80);
 			if(data & SWDREQUESTISREAD){
-				if(blestatus.ready){
+				if(blestatus.ready && (data == blestatus.packet.request)){
 					packet.data = blestatus.packet.data;
 					packet.parity = blestatus.packet.parity;
 					blestatus.ready = 0;

@@ -8,9 +8,9 @@
 #ifndef INC_SLAVE_H_
 #define INC_SLAVE_H_
 
+#include "blecommunication.h"
 #include "main.h"
 #include "swdprotocol.h"
-#include "communication.h"
 
 #define SLAVEDMASIZE 256U
 
